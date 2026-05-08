@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
-from datetime import datetime
+from datetime import UTC, datetime
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -46,7 +46,7 @@ async def crawl_docs(settings: Settings) -> list[PageRecord]:
                     headings=headings,
                     visible_text=visible_text,
                     ui_labels=labels,
-                    fetched_at=datetime.utcnow(),
+                    fetched_at=datetime.now(UTC),
                 )
             )
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from typing import Literal
 
@@ -24,11 +25,9 @@ analyse_app = typer.Typer(help="Run analyzers")
 app.add_typer(analyse_app, name="analyse")
 console = Console()
 
-_STATE: dict[str, list[PageRecord]] = {"docs": [], "app": []}
-
 
 @app.command()
-def login_check(check: bool = typer.Option(True, "--check", help="Run login check")) -> None:
+def login_check(perform_check: bool = typer.Option(True, "--check", help="Run login check")) -> None:
     settings = get_settings()
 
     async def _run() -> None:
@@ -42,7 +41,7 @@ def login_check(check: bool = typer.Option(True, "--check", help="Run login chec
                 await context.close()
                 await browser.close()
 
-    if check:
+    if perform_check:
         try:
             asyncio.run(_run())
         except AuthError as exc:
@@ -69,13 +68,13 @@ def crawl(target: Literal["docs", "app"]) -> None:
                 await browser.close()
 
     pages = asyncio.run(_run())
-    _STATE[target] = pages
+    _save_pages(target, pages)
     console.print(f"[green]Crawled {len(pages)} {target} pages.[/green]")
 
 
 @analyse_app.command("coverage")
 def analyse_coverage_cmd() -> None:
-    findings = analyse_coverage(_STATE["app"], _STATE["docs"])
+    findings = analyse_coverage(_load_pages("app"), _load_pages("docs"))
     table = Table(title="Coverage Findings")
     table.add_column("Severity")
     table.add_column("Feature")
@@ -87,7 +86,7 @@ def analyse_coverage_cmd() -> None:
 
 @analyse_app.command("style")
 def analyse_style_cmd() -> None:
-    findings = analyse_style(_STATE["docs"], _STATE["app"])
+    findings = analyse_style(_load_pages("docs"), _load_pages("app"))
     table = Table(title="Style Findings")
     table.add_column("Category")
     table.add_column("Severity")
@@ -119,7 +118,8 @@ def run(
         return docs_pages, app_pages
 
     docs_pages, app_pages = asyncio.run(_crawl_all())
-    _STATE["docs"], _STATE["app"] = docs_pages, app_pages
+    _save_pages("docs", docs_pages)
+    _save_pages("app", app_pages)
 
     report = AuditReport()
     if only in {"coverage", "all"}:
@@ -132,6 +132,26 @@ def run(
 
     if fail_on == "missing" and any(f.severity == "missing" for f in report.coverage_findings):
         raise typer.Exit(code=2)
+
+
+def _state_file(target: Literal["docs", "app"]) -> Path:
+    settings = get_settings()
+    return settings.artifacts_path / f"{target}_pages.json"
+
+
+def _save_pages(target: Literal["docs", "app"], pages: list[PageRecord]) -> None:
+    payload = [page.model_dump(mode="json") for page in pages]
+    _state_file(target).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _load_pages(target: Literal["docs", "app"]) -> list[PageRecord]:
+    path = _state_file(target)
+    if not path.exists():
+        raise typer.BadParameter(
+            f"No cached {target} crawl found. Run `auditor crawl {target}` or `auditor run` first."
+        )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return [PageRecord.model_validate(item) for item in payload]
 
 
 if __name__ == "__main__":

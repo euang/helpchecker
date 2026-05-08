@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import re
 from collections import deque
-from datetime import datetime
+from datetime import UTC, datetime
 from urllib.parse import urljoin, urlparse
 
 from playwright.async_api import BrowserContext
@@ -19,9 +19,7 @@ _DYNAMIC_SEGMENT = re.compile(
 
 
 async def crawl_app(context: BrowserContext, settings: Settings) -> list[PageRecord]:
-    if settings.storage_state.exists():
-        pass
-    else:
+    if not settings.storage_state.exists():
         await login(context, settings)
 
     seeds = [str(settings.app_base_url)] + _seed_routes(settings)
@@ -44,7 +42,6 @@ async def crawl_app(context: BrowserContext, settings: Settings) -> list[PageRec
             visited_templates.add(template)
 
             title = await page.title()
-            html = await page.content()
             screenshot = settings.artifacts_path / f"app-{len(records)+1}.png"
             await page.screenshot(path=str(screenshot), full_page=True)
 
@@ -65,7 +62,7 @@ async def crawl_app(context: BrowserContext, settings: Settings) -> list[PageRec
                     ui_labels=sorted(ui_labels),
                     computed_styles=aggregate_styles([style_map]),
                     screenshot_path=str(screenshot),
-                    fetched_at=datetime.utcnow(),
+                    fetched_at=datetime.now(UTC),
                 )
             )
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from auditor.extractors.terminology import capitalization_variants, terminology_frequency
 from auditor.models import PageRecord, StyleFinding
 
@@ -104,8 +106,10 @@ def _compare_capitalisation(docs_pages: list[PageRecord], app_pages: list[PageRe
 def _compare_tone(docs_pages: list[PageRecord], app_pages: list[PageRecord]) -> list[StyleFinding]:
     docs_text = " ".join(p.visible_text for p in docs_pages)
     app_text = " ".join(p.visible_text for p in app_pages)
-    docs_second_person = docs_text.lower().count(" you ") + docs_text.lower().count(" your ")
-    app_first_person = app_text.lower().count(" i ") + app_text.lower().count(" my ")
+    docs_text_lower = docs_text.lower()
+    app_text_lower = app_text.lower()
+    docs_second_person = len(re.findall(r"\b(?:you|your)\b", docs_text_lower))
+    app_first_person = len(re.findall(r"\b(?:i|my)\b", app_text_lower))
     if docs_second_person == 0 and app_first_person == 0:
         return []
     return [

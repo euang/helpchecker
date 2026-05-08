@@ -39,7 +39,7 @@ class Settings(BaseSettings):
         try:
             parsed = json.loads(self.app_login_selectors)
             return LoginSelectors(**parsed)
-        except Exception as exc:  # noqa: BLE001
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
             raise ValueError("APP_LOGIN_SELECTORS must be valid JSON") from exc
 
     @property

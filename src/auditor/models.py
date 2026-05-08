@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -29,7 +29,7 @@ class PageRecord(BaseModel):
     ui_labels: list[str] = Field(default_factory=list)
     computed_styles: StyleFingerprint = Field(default_factory=StyleFingerprint)
     screenshot_path: str | None = None
-    fetched_at: datetime = Field(default_factory=datetime.utcnow)
+    fetched_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class CoverageFinding(BaseModel):
